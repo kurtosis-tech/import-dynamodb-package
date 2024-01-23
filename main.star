@@ -3,7 +3,8 @@ IMAGE = "bchew/dynamodump"
 
 def run(
     plan,
-    db_endpoint,
+    db_host,
+    db_port,
     aws_access_key_id,
     aws_secret_access_key,
     aws_region
@@ -49,8 +50,6 @@ def run(
     result = plan.exec(service_name=NAME, recipe=exec_recipe)
     plan.verify(result["code"], "==", 0)
 
-    host_and_port = db_endpoint.split("/")[2]
-    host_and_port_split = host_and_port.split(":")
     exec_recipe = ExecRecipe(
         command = ["dynamodump",
                    "-m",
@@ -62,9 +61,9 @@ def run(
                    "-r",
                    "local",
                    "--host",
-                   host_and_port_split[0],
+                   db_host,
                    "--port",
-                   host_and_port_split[1],
+                   db_port,
                    "-s",
                    "*"],
     )
