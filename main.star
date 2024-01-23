@@ -63,7 +63,7 @@ def run(
                    "--host",
                    db_host,
                    "--port",
-                   db_port,
+                   str(db_port),
                    "-s",
                    "*"],
     )
