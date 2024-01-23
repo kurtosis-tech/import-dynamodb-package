@@ -1,23 +1,74 @@
-# NOTE: If you're a VSCode user, you might like our VSCode extension: https://marketplace.visualstudio.com/items?itemName=Kurtosis.kurtosis-extension
+NAME = "import-dynamodb"
+IMAGE = "bchew/dynamodump"
 
-# Importing the Postgres package from the web using absolute import syntax
-# See also: https://docs.kurtosis.com/starlark-reference/import-module
-postgres = import_module("github.com/kurtosis-tech/postgres-package/main.star")
+def run(
+    plan,
+    db_endpoint,
+    aws_access_key_id,
+    aws_secret_access_key,
+    aws_region
+    ):
+    """
+    Import AWS DynamoDB data into a local DynamoDB 
+    """
+    exec_recipe = ExecRecipe(
+        command = ["dynamodump", "-h"]
+    )
 
-# Importing a file inside this package using relative import syntax
-# See also: https://docs.kurtosis.com/starlark-reference/import-module
-lib = import_module("./lib/lib.star")
+    ready_conditions_config = ReadyCondition(
+        recipe = exec_recipe,
+        field = "code",
+        assertion = "==",
+        target_value = 0,
+        interval = "2s",
+        timeout = "10s",
+    )
 
-# For more information on...
-#  - the 'run' function:  https://docs.kurtosis.com/concepts-reference/packages#runnable-packages
-#  - the 'plan' object:   https://docs.kurtosis.com/starlark-reference/plan
-#  - arguments:           https://docs.kurtosis.com/run#arguments
-def run(plan, name = "John Snow"):
-    plan.print("Hello, " + name)
+    service_config= ServiceConfig(
+        image = IMAGE,
+        entrypoint = ["/bin/sh", "-c"],
+        cmd = ["sleep 3600"],
+        ready_conditions=ready_conditions_config,
+    )
 
-    # https://docs.kurtosis.com/starlark-reference/plan#upload_files
-    config_json = plan.upload_files("./static-files/config.json")
+    service = plan.add_service(name = NAME, config = service_config)
 
-    lib.run_hello(plan, config_json)
+    exec_recipe = ExecRecipe(
+        command = ["dynamodump",
+                   "-m",
+                   "backup",
+                   "--accessKey",
+                   aws_access_key_id,
+                   "--secretKey",
+                   aws_secret_access_key,
+                   "-r",
+                   aws_region,
+                   "-s",
+                   "*"],
+    )
+    result = plan.exec(service_name=NAME, recipe=exec_recipe)
+    plan.verify(result["code"], "==", 0)
 
-    postgres.run(plan)
+    host_and_port = db_endpoint.split("/")[2]
+    host, port = host_and_port.split(":")
+    exec_recipe = ExecRecipe(
+        command = ["dynamodump",
+                   "-m",
+                   "restore",
+                   "--accessKey",
+                   aws_access_key_id,
+                   "--secretKey",
+                   aws_secret_access_key,
+                   "-r",
+                   "local",
+                   "--host",
+                   host,
+                   "--port",
+                   port,
+                   "-s",
+                   "*"],
+    )
+    result = plan.exec(service_name=NAME, recipe=exec_recipe)
+    plan.verify(result["code"], "==", 0)
+
+    return {"service-name": NAME}
