@@ -21,8 +21,9 @@ You can configure this package using a JSON structure as an argument to the `kur
 
 ```javascript
 {
-    // Local dynamodb endpoint
-    "db_endpoint": "http://localhost:8000",
+    // Local dynamodb host and port
+    "db_host": "localhost",
+    "db_port": 8000,
     // AWS credentials
     "aws_access_key_id": "",
     "aws_secret_access_key": "",
